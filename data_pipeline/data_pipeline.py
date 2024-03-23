@@ -1,11 +1,13 @@
 from pathlib import Path
 import pandas as pd
 import gzip
+import json
 
 
 DATA_PATH = "./data"
 MIMIC_PATH = f"{DATA_PATH}/mimiciv/2.2"
 PROCESSED_DATA_PATH = "./processed_data"
+
 
 def unzip_all_data() -> None:
     for file in Path(MIMIC_PATH).glob("**/*"):
@@ -16,23 +18,35 @@ def unzip_all_data() -> None:
 
             if new_file.exists():
                 continue
-            
+
             Path(new_directory).mkdir(exist_ok=True, parents=True)
             with gzip.open(file, "rb") as zip_f:
                 file_content = zip_f.read()
                 with open(new_file, "wb+") as f:
                     f.write(file_content)
 
-def get_all_labels() -> "dict[str, list[str]]":
-    labels = {}
-    for file in Path(PROCESSED_DATA_PATH).glob("**/*"):
-        if file.is_file() and file.suffix == ".csv":
-            df = pd.read_csv(file)
-            name = file.with_suffix("").name
-            labels[name] = [c for c in df.columns]
-    
-    return labels
+
+def find_all_labels() -> None:
+    out_file = Path(PROCESSED_DATA_PATH) / "labels.json"
+
+    if not out_file.exists():
+        file_to_labels = {}
+        for file in Path(PROCESSED_DATA_PATH).glob("**/*"):
+            if file.is_file() and file.suffix == ".csv":
+                with open(file, "rt") as f:
+                    labels = f.readline().strip()
+
+                name = file.with_suffix("").name
+                file_to_labels[name] = labels.split(",")
+
+        with open(out_file, "wt+") as f:
+            json.dump(file_to_labels, f)
 
 
-unzip_all_data()
-print(get_all_labels())
+def main() -> None:
+    unzip_all_data()
+    find_all_labels()
+
+
+if __name__ == "__main__":
+    main()
