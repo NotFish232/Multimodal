@@ -1,8 +1,6 @@
-from pathlib import Path
-import pandas as pd
 import gzip
 import json
-
+from pathlib import Path
 
 DATA_PATH = "./data"
 MIMIC_PATH = f"{DATA_PATH}/mimiciv/2.2"
