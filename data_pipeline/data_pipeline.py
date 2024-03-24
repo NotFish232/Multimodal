@@ -1,6 +1,7 @@
 import gzip
 import json
 from pathlib import Path
+import pandas as pd
 
 DATA_PATH = "./data"
 MIMIC_PATH = f"{DATA_PATH}/mimiciv/2.2"
@@ -34,17 +35,36 @@ def find_all_labels() -> None:
                 with open(file, "rt") as f:
                     labels = f.readline().strip()
 
-                name = file.with_suffix("").name
-                file_to_labels[name] = labels.split(",")
+                file_to_labels[str(file)] = labels.split(",")
 
         with open(out_file, "wt+") as f:
             json.dump(file_to_labels, f)
 
 
+def find_all_icd_codes() -> None:
+    out_file = Path(PROCESSED_DATA_PATH) / "icd_codes.json"
+
+    if not out_file.exists():
+        labels_file = Path(PROCESSED_DATA_PATH) / "labels.json"
+        with open(labels_file, "rt") as f:
+            file_to_labels = json.load(f)
+        
+        icd_codes = set()
+
+        for file, labels in file_to_labels.items():
+            for label in labels:
+                if label == "icd_code":
+                    df = pd.read_csv(file)
+                    icd_codes |= {*df[label].unique()}
+        
+        with open(out_file, "wt+") as f:
+            json.dump([*icd_codes], f)
+   
+
 def main() -> None:
     unzip_all_data()
     find_all_labels()
-
+    find_all_icd_codes()
 
 if __name__ == "__main__":
     main()
