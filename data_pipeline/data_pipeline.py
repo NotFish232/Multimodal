@@ -2,6 +2,8 @@ import gzip
 import json
 from pathlib import Path
 import pandas as pd
+from collections import Counter, OrderedDict
+from typing import Counter as TCounter
 
 DATA_PATH = "./data"
 MIMIC_PATH = f"{DATA_PATH}/mimiciv/2.2"
@@ -48,23 +50,24 @@ def find_all_icd_codes() -> None:
         labels_file = Path(PROCESSED_DATA_PATH) / "labels.json"
         with open(labels_file, "rt") as f:
             file_to_labels = json.load(f)
-        
-        icd_codes = set()
+
+        icd_codes_to_freq: "TCounter[str]" = Counter()
 
         for file, labels in file_to_labels.items():
             for label in labels:
                 if label == "icd_code":
                     df = pd.read_csv(file)
-                    icd_codes |= {*df[label].unique()}
-        
+                    icd_codes_to_freq.update(df[label])
+
         with open(out_file, "wt+") as f:
-            json.dump([*icd_codes], f)
-   
+            json.dump(OrderedDict(icd_codes_to_freq.most_common()), f)
+
 
 def main() -> None:
     unzip_all_data()
     find_all_labels()
     find_all_icd_codes()
+
 
 if __name__ == "__main__":
     main()
