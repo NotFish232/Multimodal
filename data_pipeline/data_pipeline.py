@@ -91,7 +91,7 @@ def parse_image_and_report_data() -> None:
                     )
                     image = Image.fromarray(pixels)
                     image = image.resize((1024, 1024))
-                    image.save(out_path / f"image_{idx}.png")
+                    image.save(out_path / dcm_file.with_suffix(".png").name)
 
                 info_file = study_dir.with_suffix(".txt")
                 info = info_file.read_text()
