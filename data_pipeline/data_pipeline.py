@@ -101,7 +101,7 @@ def parse_image_and_report_data() -> None:
                 json.dump(info_json, open(out_path / "info.json", "w+"))
 
             except Exception as e:
-                print(f"Processing {patient_dir.name}_{study_dir.name}: {e}")
+                print(f"Error Processing {patient_dir.name}_{study_dir.name}")
                 raise e
 
 
