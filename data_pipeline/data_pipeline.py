@@ -5,6 +5,7 @@ import numpy as np
 import zipfile
 import json
 import pydicom
+from typing import Tuple
 from tqdm import tqdm
 
 DATA_PATH = "./data"
@@ -44,6 +45,26 @@ def unzip_all_data() -> None:
             zip_ref.extractall(new_directory)
 
 
+def parse_info_file(info: str) -> "Tuple[str, str]":
+    findings_idx = info.find("FINDINGS:")
+    impressions_idx = info.find("IMPRESSION:")
+    findings_len = len("FINDINGS:")
+    impression_len = len("IMPRESSION:")
+
+    if findings_idx == -1 and impressions_idx == -1:
+        return "", info.split("\n \n")[-1].strip()
+
+    if impressions_idx == -1:
+        return "", info[findings_idx + findings_len :].strip()
+    if findings_idx == -1:
+        return "", info[impressions_idx + impression_len :].strip()
+
+    findings = info[findings_idx + findings_len : impressions_idx].strip()
+    impressions = info[impressions_idx + impression_len :].strip()
+
+    return findings, impressions
+
+
 def parse_image_and_report_data() -> None:
     path_to_image_data = Path(MIMIC_PATH) / "files"
     path_to_processed_data = Path(PROCESSED_DATA_PATH) / "dataset"
@@ -55,7 +76,7 @@ def parse_image_and_report_data() -> None:
             if not study_dir.is_dir():
                 continue
 
-            out_path = path_to_processed_data / f"{patient_dir.name}_{study_dir.name}"
+            out_path = path_to_processed_data / patient_dir.name / study_dir.name
 
             if out_path.exists():
                 continue
@@ -63,27 +84,20 @@ def parse_image_and_report_data() -> None:
             out_path.mkdir(parents=True)
 
             try:
-                dcm_file = next(study_dir.glob("*.dcm"))
-                ds = pydicom.read_file(dcm_file)  # type: ignore
-                pixels = (255 * (ds.pixel_array / ds.pixel_array.max())).astype(
-                    np.uint8
-                )
-                image = Image.fromarray(pixels)
-                image = image.resize((1024, 1024))
-                image.save(out_path / "image.png")
+                for idx, dcm_file in enumerate(study_dir.glob("*.dcm")):
+                    ds = pydicom.read_file(dcm_file)  # type: ignore
+                    pixels = (255 * (ds.pixel_array / ds.pixel_array.max())).astype(
+                        np.uint8
+                    )
+                    image = Image.fromarray(pixels)
+                    image = image.resize((1024, 1024))
+                    image.save(out_path / f"image_{idx}.png")
 
                 info_file = study_dir.with_suffix(".txt")
-
                 info = info_file.read_text()
-                findings_idx = info.find("FINDINGS:")
-                findings_len = len("FINDINGS:")
-                impression_idx = info.find("IMPRESSION:")
-                impression_len = len("IMPRESSION:")
+                information, result = parse_info_file(info)
 
-                findings = info[findings_idx + findings_len : impression_idx].strip()
-                impression = info[impression_idx + impression_len :].strip()
-
-                info_json = {"findings": findings, "impression": impression}
+                info_json = {"information": information, "result": result}
                 json.dump(info_json, open(out_path / "info.json", "w+"))
 
             except Exception as e:
