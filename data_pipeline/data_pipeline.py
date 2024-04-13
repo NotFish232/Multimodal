@@ -76,7 +76,7 @@ def parse_image_and_report_data() -> None:
             if not study_dir.is_dir():
                 continue
 
-            out_path = path_to_processed_data / patient_dir.name / study_dir.name
+            out_path = path_to_processed_data / f"{patient_dir.name}_{study_dir.name}"
 
             if out_path.exists():
                 continue
