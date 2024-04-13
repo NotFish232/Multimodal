@@ -105,10 +105,12 @@ def parse_image_and_report_data() -> None:
                 raise e
 
 
-def main() -> None:
+def run_data_pipeline() -> None:
     unzip_all_data()
     parse_image_and_report_data()
 
+def main() -> None:
+    run_data_pipeline()
 
 if __name__ == "__main__":
     main()
