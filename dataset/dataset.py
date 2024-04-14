@@ -44,14 +44,10 @@ class MimicCXRDataset(Dataset):
             max_length=256,
             padding="max_length",
             truncation=True,
-            add_special_tokens=True,
-            return_token_type_ids=True,
+            add_special_tokens=True
         )
         information_input_ids = T.tensor(
             information_tokens["input_ids"], device=self.device
-        )
-        information_token_type_ids = T.tensor(
-            information_tokens["token_type_ids"], device=self.device
         )
         information_attention_mask = T.tensor(
             information_tokens["attention_mask"], device=self.device
@@ -63,14 +59,12 @@ class MimicCXRDataset(Dataset):
             max_length=256,
             padding="max_length",
             truncation=True,
-            add_special_tokens=True,
-            return_token_type_ids=True,
+            add_special_tokens=True
         )
         result_input_ids = T.tensor(result_tokens["input_ids"], device=self.device)
 
         return {
             "information_tokens": information_input_ids,
-            "information_token_types": information_token_type_ids,
             "information_mask": information_attention_mask,
             "images": processed_images,
             "num_images": num_images,

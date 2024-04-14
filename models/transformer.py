@@ -35,4 +35,5 @@ class TransformerModel(nn.Module):
 
 
 m = TransformerModel()
+print(sum(i.numel() for i in m.parameters()))
 print([t.shape for t in m("this is a test sentence with more things now").__dict__.values() if  isinstance(t, T.Tensor)])
