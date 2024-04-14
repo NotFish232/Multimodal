@@ -33,3 +33,6 @@ class TransformerModel(nn.Module):
         )
         return outputs
 
+
+m = TransformerModel()
+print([t.shape for t in m("this is a test sentence with more things now").__dict__.values() if  isinstance(t, T.Tensor)])
