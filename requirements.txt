@@ -7,3 +7,4 @@ transformers==4.39.3
 torch==2.0.1
 torchvision==0.15.2
 tensorboard==2.14.0
+protobuf==4.25.3
