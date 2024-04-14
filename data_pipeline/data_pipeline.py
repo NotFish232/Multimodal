@@ -84,7 +84,10 @@ def parse_image_and_report_data() -> None:
             out_path.mkdir(parents=True)
 
             try:
-                for idx, dcm_file in enumerate(study_dir.glob("*.dcm")):
+                if len([*study_dir.glob("*.dcm")]) == 0:
+                    raise Exception("No DCM Files")
+                
+                for dcm_file in study_dir.glob("*.dcm"):
                     ds = pydicom.read_file(dcm_file)  # type: ignore
                     pixels = (255 * (ds.pixel_array / ds.pixel_array.max())).astype(
                         np.uint8
