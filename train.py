@@ -26,7 +26,7 @@ def main() -> None:
     writer = SummaryWriter()
 
     for epoch in range(1, NUM_EPOCHS + 1):
-        acc_loss = 0
+        acc_loss = 0.0
         for batch in tqdm(dataloader):
             information_tokens = batch["information_tokens"]
             information_attention_mask = batch["information_attention_mask"]
@@ -48,6 +48,7 @@ def main() -> None:
             optimizer.zero_grad()
 
             acc_loss += loss.item()
+        acc_loss /= len(dataloader)
 
         print(f"Loss: {acc_loss:.2f}")
 
