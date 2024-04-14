@@ -56,7 +56,7 @@ class MimicCXRDataset(Dataset):
         result_tokens = self.tokenizer.encode_plus(
             result,
             None,
-            max_length=256,
+            max_length=512,
             padding="max_length",
             truncation=True,
             add_special_tokens=True,
