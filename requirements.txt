@@ -3,3 +3,6 @@ pathlib==1.0.1
 pydicom==2.4.4
 pillow==10.3.0
 tqdm==4.66.2
+transformers==4.39.3
+torch==2.0.1
+torchvision==0.15.2
