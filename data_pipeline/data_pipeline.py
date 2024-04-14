@@ -45,19 +45,14 @@ def unzip_all_data() -> None:
             zip_ref.extractall(new_directory)
 
 
-def parse_info_file(info: str) -> "Tuple[str, str]":
+def parse_info_file(info: str) -> "Tuple[str, str] | None":
     findings_idx = info.find("FINDINGS:")
     impressions_idx = info.find("IMPRESSION:")
     findings_len = len("FINDINGS:")
     impression_len = len("IMPRESSION:")
 
-    if findings_idx == -1 and impressions_idx == -1:
-        return "", info.split("\n \n")[-1].strip()
-
-    if impressions_idx == -1:
-        return "", info[findings_idx + findings_len :].strip()
-    if findings_idx == -1:
-        return "", info[impressions_idx + impression_len :].strip()
+    if findings_idx == -1 or impressions_idx == -1:
+        return None
 
     findings = info[findings_idx + findings_len : impressions_idx].strip()
     impressions = info[impressions_idx + impression_len :].strip()
@@ -81,12 +76,22 @@ def parse_image_and_report_data() -> None:
             if out_path.exists():
                 continue
 
-            out_path.mkdir(parents=True)
-
             try:
                 if len([*study_dir.glob("*.dcm")]) == 0:
                     raise Exception("No DCM Files")
-                
+
+                info_file = study_dir.with_suffix(".txt")
+                info = info_file.read_text()
+                info_result = parse_info_file(info)
+                if info_result is None:
+                    continue
+                information, result = info_result
+
+                out_path.mkdir(parents=True)
+
+                info_json = {"information": information, "result": result}
+                json.dump(info_json, open(out_path / "info.json", "w+"))
+
                 for dcm_file in study_dir.glob("*.dcm"):
                     ds = pydicom.read_file(dcm_file)  # type: ignore
                     pixels = (255 * (ds.pixel_array / ds.pixel_array.max())).astype(
@@ -95,13 +100,6 @@ def parse_image_and_report_data() -> None:
                     image = Image.fromarray(pixels)
                     image = image.resize((1024, 1024))
                     image.save(out_path / dcm_file.with_suffix(".png").name)
-
-                info_file = study_dir.with_suffix(".txt")
-                info = info_file.read_text()
-                information, result = parse_info_file(info)
-
-                info_json = {"information": information, "result": result}
-                json.dump(info_json, open(out_path / "info.json", "w+"))
 
             except Exception as e:
                 print(f"Error Processing {patient_dir.name}_{study_dir.name}")
@@ -112,8 +110,10 @@ def run_data_pipeline() -> None:
     unzip_all_data()
     parse_image_and_report_data()
 
+
 def main() -> None:
     run_data_pipeline()
+
 
 if __name__ == "__main__":
     main()
