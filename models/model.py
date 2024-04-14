@@ -2,7 +2,7 @@ import torch as T
 from torch import nn
 from torch.nn import functional as F
 from typing_extensions import Self
-from transformers import BertModel, ConvNextV2Model
+from transformers import BertModel, ConvNextV2Model  # type: ignore
 
 
 class MimicCXRModel(nn.Module):
@@ -40,7 +40,7 @@ class MimicCXRModel(nn.Module):
             batched_features_list.append(batched_features)
 
             images_idx += num_image
-            
+
         batched_image_features = T.concat(batched_features_list)
         batched_image_features = F.leaky_relu(self.ftc2(batched_image_features))
         batched_image_features = batched_image_features.to(T.int64)

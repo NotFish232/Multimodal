@@ -1,6 +1,6 @@
 import torch as T
 from torch.utils.data import Dataset
-from transformers import BertTokenizer, AutoImageProcessor
+from transformers import BertTokenizer, AutoImageProcessor  # type: ignore
 from PIL import Image
 from typing_extensions import Self
 from typing import List
@@ -44,7 +44,7 @@ class MimicCXRDataset(Dataset):
             max_length=256,
             padding="max_length",
             truncation=True,
-            add_special_tokens=True
+            add_special_tokens=True,
         )
         information_input_ids = T.tensor(
             information_tokens["input_ids"], device=self.device
@@ -59,7 +59,7 @@ class MimicCXRDataset(Dataset):
             max_length=256,
             padding="max_length",
             truncation=True,
-            add_special_tokens=True
+            add_special_tokens=True,
         )
         result_input_ids = T.tensor(result_tokens["input_ids"], device=self.device)
 

@@ -17,7 +17,7 @@ information_attention_mask = batch["information_attention_mask"]
 images = batch["images"]
 num_images = batch["num_images"]
 
-print(batch.keys())
+print(sum(p.numel() for p in model.parameters()))
 x = model(information_tokens, information_attention_mask, images, num_images)[0]
 x = T.argmax(x, dim=1)
 print(dataset.tokenizer.decode(x))
