@@ -1,5 +1,5 @@
 import torch as T
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from transformers import BertTokenizer, AutoImageProcessor
 from PIL import Image
 from typing_extensions import Self
@@ -15,7 +15,7 @@ class MimicCXRDataset(Dataset):
         self.data_dirs = sorted(Path(DATA_DIR).iterdir())
 
         self.processor = AutoImageProcessor.from_pretrained(
-            "facebook/convnextv2-nano-22k-384",
+            "facebook/convnextv2-base-22k-384",
         )
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
@@ -65,7 +65,7 @@ class MimicCXRDataset(Dataset):
 
         return {
             "information_tokens": information_input_ids,
-            "information_mask": information_attention_mask,
+            "information_attention_mask": information_attention_mask,
             "images": processed_images,
             "num_images": num_images,
             "result_tokens": result_input_ids,
