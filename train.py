@@ -51,7 +51,7 @@ def main() -> None:
             acc_loss += loss.item()
         acc_loss /= len(dataloader)
 
-        print(f"Loss: {acc_loss:.2f}")
+        print(f"Loss: {acc_loss:.4f}")
 
         writer.add_scalar("loss/train", acc_loss, epoch)
         writer.flush()
