@@ -19,6 +19,7 @@ def main() -> None:
     dataloader = DataLoader(dataset, BATCH_SIZE, collate_fn=custom_collate_fn)
 
     model = MimicCXRModel(len(dataset.tokenizer)).to(device)
+    print(f"params: {sum(p.numel() for p in model.parameters()):,}")
 
     criterion = nn.CrossEntropyLoss(ignore_index=dataset.tokenizer.pad_token_id)
     optimizer = optim.Adam(model.parameters(), LR)
