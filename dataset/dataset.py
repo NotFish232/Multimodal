@@ -15,9 +15,11 @@ class MimicCXRDataset(Dataset):
         self.data_dirs = sorted(Path(DATA_DIR).iterdir())
 
         self.processor = AutoImageProcessor.from_pretrained(
-            "facebook/convnextv2-base-22k-384",
+            "facebook/convnextv2-tiny-22k-384",
         )
-        self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        self.tokenizer = BertTokenizer.from_pretrained(
+            "google/bert_uncased_L-4_H-256_A-4"
+        )
 
         self.device = device
 

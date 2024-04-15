@@ -5,7 +5,7 @@ import torch as T
 
 
 def main() -> None:
-    device = T.device("cuda:5" if T.cuda.is_available() else "cpu")
+    device = T.device("cuda:4" if T.cuda.is_available() else "cpu")
 
     dataset = MimicCXRDataset(device)
 
@@ -14,7 +14,7 @@ def main() -> None:
     model.eval()
     print(f"params: {sum(p.numel() for p in model.parameters()):,}")
 
-    batch = dataset[3800]
+    batch = dataset[0]
 
     information_tokens = batch["information_tokens"].unsqueeze(0)
     information_attention_mask = batch["information_attention_mask"].unsqueeze(0)

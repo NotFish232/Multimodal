@@ -9,20 +9,21 @@ class MimicCXRModel(nn.Module):
         super().__init__()
 
         self.a_fn = nn.LeakyReLU()
-        self.drop1 = nn.Dropout(0.25)
-        self.drop2 = nn.Dropout(0.5)
+        self.drop1 = nn.Dropout(0.15)
+        self.drop2 = nn.Dropout(0.3)
 
         self.conv_net = ConvNextV2Model.from_pretrained(
-            "facebook/convnextv2-base-22k-384"
+            "facebook/convnextv2-tiny-22k-384"
         )
-        self.ftc1 = nn.Linear(1024, 512)
+        self.ftc1 = nn.Linear(768, 512)
         self.ftc2 = nn.Linear(512, 256)
 
-        self.transformer = BertModel.from_pretrained("bert-base-uncased")
+        self.transformer = BertModel.from_pretrained(
+            "google/bert_uncased_L-4_H-256_A-4"
+        )
 
-        self.ftc3 = nn.Linear(768, 1024)
-        self.ftc4 = nn.Linear(1024, 1024)
-        self.ftc5 = nn.Linear(1024, vocab_size)
+        self.ftc3 = nn.Linear(256, 512)
+        self.ftc4 = nn.Linear(512, vocab_size)
 
     def forward(
         self: Self,
@@ -47,7 +48,9 @@ class MimicCXRModel(nn.Module):
             images_idx += num_image
 
         batched_image_features = T.concat(batched_features_list)
-        batched_image_features = self.drop1(self.a_fn(self.ftc2(batched_image_features)))
+        batched_image_features = self.drop1(
+            self.a_fn(self.ftc2(batched_image_features))
+        )
         batched_image_features = batched_image_features.to(T.int64)
 
         complete_embeddings = T.concat((tokens, batched_image_features), dim=1)
@@ -58,7 +61,6 @@ class MimicCXRModel(nn.Module):
         ).last_hidden_state
 
         final_output = self.drop2(self.a_fn(self.ftc3(transformer_output)))
-        final_output = self.drop2(self.a_fn(self.ftc4(final_output)))
-        final_output = self.ftc5(final_output)
+        final_output = self.ftc4(final_output)
 
         return final_output
