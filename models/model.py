@@ -1,6 +1,5 @@
 import torch as T
 from torch import nn
-from torch.nn import functional as F
 from typing_extensions import Self
 from transformers import BertModel, ConvNextV2Model  # type: ignore
 
@@ -10,7 +9,8 @@ class MimicCXRModel(nn.Module):
         super().__init__()
 
         self.a_fn = nn.LeakyReLU()
-        self.drop = nn.Dropout(0.25)
+        self.drop1 = nn.Dropout(0.25)
+        self.drop2 = nn.Dropout(0.5)
 
         self.conv_net = ConvNextV2Model.from_pretrained(
             "facebook/convnextv2-base-22k-384"
@@ -32,7 +32,7 @@ class MimicCXRModel(nn.Module):
         num_images: T.Tensor,
     ) -> T.Tensor:
         image_features = self.conv_net(images).pooler_output
-        image_features = self.a_fn(self.ftc1(image_features))
+        image_features = self.drop1(self.a_fn(self.ftc1(image_features)))
 
         batched_features_list = []
         images_idx = 0
@@ -47,7 +47,7 @@ class MimicCXRModel(nn.Module):
             images_idx += num_image
 
         batched_image_features = T.concat(batched_features_list)
-        batched_image_features = self.a_fn(self.ftc2(batched_image_features))
+        batched_image_features = self.drop1(self.a_fn(self.ftc2(batched_image_features)))
         batched_image_features = batched_image_features.to(T.int64)
 
         complete_embeddings = T.concat((tokens, batched_image_features), dim=1)
@@ -57,8 +57,8 @@ class MimicCXRModel(nn.Module):
             complete_embeddings, attention_mask=attention_mask
         ).last_hidden_state
 
-        final_output = self.drop(self.a_fn(self.ftc3(transformer_output)))
-        final_output = self.drop(self.a_fn(self.ftc4(final_output)))
+        final_output = self.drop2(self.a_fn(self.ftc3(transformer_output)))
+        final_output = self.drop2(self.a_fn(self.ftc4(final_output)))
         final_output = self.ftc5(final_output)
 
         return final_output
