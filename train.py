@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 NUM_EPOCHS = 100
 BATCH_SIZE = 8
-LR = 5e-4
+LR = 1e-4
 
 
 def main() -> None:
