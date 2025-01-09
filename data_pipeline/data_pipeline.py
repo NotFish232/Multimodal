@@ -7,6 +7,7 @@ import pandas as pd
 import shutil
 import json
 import math
+from typing import List, Dict
 
 DATA_PATH = "./data/physionet.org/files"
 PROCESSED_DATA_PATH = "./processed_data"
@@ -72,33 +73,50 @@ def parse_image_and_report_data() -> None:
         metadata_file, index_col=False
     )  # data dim does not match header dim
 
+
     record_file = f"{processed_mimic_path}/cxr-record-list.csv"
     record_df = pd.read_csv(record_file)
 
-    image_files = tqdm(sorted((f for f in images_path.glob("**/*.jpg"))))
+    chexpert_file = f"{processed_mimic_jpg_path}/mimic-cxr-2.0.0-chexpert.csv"
+    chexpert_df = pd.read_csv(chexpert_file)
+    negbio_file = f"{processed_mimic_jpg_path}/mimic-cxr-2.0.0-negbio.csv"
+    negbio_df = pd.read_csv(negbio_file)
+    radiologist_file = (
+        f"{processed_mimic_jpg_path}/mimic-cxr-2.1.0-test-set-labeled.csv"
+    )
+    radiologist_df = pd.read_csv(radiologist_file)
+
+    split_file = f"{processed_mimic_jpg_path}/mimic-cxr-2.0.0-split.csv"
+    split_df = pd.read_csv(split_file)
+
+    image_dirs = tqdm(sorted((f for f in images_path.glob("*/*/*") if f.is_dir())))
 
     dataset_path.mkdir(exist_ok=True)
 
-    for file in image_files:
-        dicom_id = file.stem
-        metadata = metadata_df[metadata_df["dicom_id"] == dicom_id]
-        subject_id = metadata["subject_id"].values[0]
-        study_id = metadata["study_id"].values[0]
-        view_position = metadata["ViewPosition"].values[0]
+    for image_dir in image_dirs:
 
-        image_path = record_df[record_df["dicom_id"] == dicom_id]["path"].values[0]
-        text_path = str(Path(image_path).parent.with_suffix(".txt"))
-        text_path = f"{processed_mimic_path}/mimic-cxr-reports/{text_path}"
-        image_path = str(Path(f"{MIMIC_JPG_PATH}/{image_path}").with_suffix(".jpg"))
+        image_info: List[Dict[str, str]] = []
 
-        chexpert_file = f"{processed_mimic_jpg_path}/mimic-cxr-2.0.0-chexpert.csv"
-        chexpert_df = pd.read_csv(chexpert_file)
-        negbio_file = f"{processed_mimic_jpg_path}/mimic-cxr-2.0.0-negbio.csv"
-        negbio_df = pd.read_csv(negbio_file)
-        radiologist_file = (
-            f"{processed_mimic_jpg_path}/mimic-cxr-2.1.0-test-set-labeled.csv"
-        )
-        radiologist_df = pd.read_csv(radiologist_file)
+        for image_file in sorted(image_dir.glob("*.jpg")):
+            dicom_id = image_file.stem
+            metadata = metadata_df[metadata_df["dicom_id"] == dicom_id]
+            subject_id = metadata["subject_id"].values[0]
+            study_id = metadata["study_id"].values[0]
+            performed_procedure_step_description = metadata["PerformedProcedureStepDescription"].values[0]
+            view_position = metadata["ViewPosition"].values[0]
+
+            image_path = record_df[record_df["dicom_id"] == dicom_id]["path"].values[0]
+
+            # all the text paths should be the same
+            text_path = str(Path(image_path).parent.with_suffix(".txt"))
+            text_path = f"{processed_mimic_path}/mimic-cxr-reports/{text_path}"
+
+            image_path = str(Path(f"{MIMIC_JPG_PATH}/{image_path}").with_suffix(".jpg"))
+            image_path = f"./{image_path}"
+
+            image_info.append({"dicom_id": dicom_id, "image_path": image_path, "view_position": view_position})
+
+        
 
         chexpert_predictions = (
             chexpert_df[chexpert_df["study_id"] == study_id]
@@ -128,18 +146,21 @@ def parse_image_and_report_data() -> None:
         }
 
         data = {
-            "dicom_id": dicom_id,
             "subject_id": int(subject_id),
             "study_id": int(study_id),
-            "view_position": view_position,
-            "image_path": image_path,
+            "performed_procedure_step_description": performed_procedure_step_description,
+            "images": image_info,
             "text_path": text_path,
             "chexpert_predictions": map_preds(chexpert_predictions),
             "negbio_predictions": map_preds(negbio_predictions),
             "radiologist_predictions": map_preds(radiologist_predictions),
         }
 
-        filename = str(dataset_path / f"{subject_id}_{study_id}.json")
+        split_info = split_df[split_df["subject_id"] == subject_id]["split"].values[0]
+
+        (dataset_path / split_info).mkdir(exist_ok=True)
+
+        filename = str(dataset_path / split_info / f"{subject_id}_{study_id}.json")
 
         json.dump(data, open(filename, "w+"), indent=4)
 
