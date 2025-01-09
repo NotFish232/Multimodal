@@ -1,22 +1,28 @@
 import gzip
 from pathlib import Path
-from PIL import Image
-import numpy as np
 import zipfile
-import json
-import pydicom
-from typing import Tuple
 from tqdm import tqdm
+from itertools import chain
+import pandas as pd
+import shutil
+import json
+import math
 
-DATA_PATH = "./data"
-MIMIC_PATH = f"{DATA_PATH}/physionet.org/files/mimic-cxr/2.0.0"
+DATA_PATH = "./data/physionet.org/files"
 PROCESSED_DATA_PATH = "./processed_data"
 
+MIMIC_PATH = f"{DATA_PATH}/mimic-cxr/2.1.0"
+MIMIC_JPG_PATH = f"{DATA_PATH}/mimic-cxr-jpg/2.1.0"
 
-def unzip_all_data() -> None:
-    for file in Path(MIMIC_PATH).glob("*.csv.gz"):
+
+def process_data_files() -> None:
+    out_dir = Path(PROCESSED_DATA_PATH) / "data_files"
+
+    for file in chain(
+        Path(MIMIC_PATH).glob("*.csv.gz"), Path(MIMIC_JPG_PATH).glob("*.csv.gz")
+    ):
         directory = file.parent
-        new_directory = Path(PROCESSED_DATA_PATH) / directory.relative_to(MIMIC_PATH)
+        new_directory = out_dir / directory.relative_to(DATA_PATH)
         new_file = new_directory / file.with_suffix("").name
 
         if new_file.exists():
@@ -31,9 +37,7 @@ def unzip_all_data() -> None:
     for file in Path(MIMIC_PATH).glob("*.zip"):
         directory = file.parent
         new_directory = (
-            Path(PROCESSED_DATA_PATH)
-            / directory.relative_to(MIMIC_PATH)
-            / file.with_suffix("").name
+            out_dir / directory.relative_to(DATA_PATH) / file.with_suffix("").name
         )
 
         if new_directory.exists():
@@ -44,70 +48,105 @@ def unzip_all_data() -> None:
         with zipfile.ZipFile(file, "r") as zip_ref:
             zip_ref.extractall(new_directory)
 
+    for file in Path(MIMIC_JPG_PATH).glob("*.csv"):
+        directory = file.parent
+        new_directory = out_dir / directory.relative_to(DATA_PATH)
+        new_file = new_directory / file.name
 
-def parse_info_file(info: str) -> "Tuple[str, str] | None":
-    findings_idx = info.find("FINDINGS:")
-    impressions_idx = info.find("IMPRESSION:")
-    findings_len = len("FINDINGS:")
-    impression_len = len("IMPRESSION:")
+        if new_file.exists():
+            continue
 
-    if findings_idx == -1 or impressions_idx == -1:
-        return None
-
-    findings = info[findings_idx + findings_len : impressions_idx].strip()
-    impressions = info[impressions_idx + impression_len :].strip()
-
-    return findings, impressions
+        Path(new_directory).mkdir(exist_ok=True, parents=True)
+        shutil.copy(file, new_file)
 
 
 def parse_image_and_report_data() -> None:
-    path_to_image_data = Path(MIMIC_PATH) / "files"
-    path_to_processed_data = Path(PROCESSED_DATA_PATH) / "dataset"
-    for patient_dir in tqdm(sorted(path_to_image_data.glob("*/*"))):
-        if not patient_dir.is_dir():
-            continue
+    images_path = Path(MIMIC_JPG_PATH) / "files"
+    dataset_path = Path(PROCESSED_DATA_PATH) / "dataset"
 
-        for study_dir in patient_dir.iterdir():
-            if not study_dir.is_dir():
-                continue
+    processed_mimic_path = f"{PROCESSED_DATA_PATH}/data_files/mimic-cxr/2.1.0"
+    processed_mimic_jpg_path = f"{PROCESSED_DATA_PATH}/data_files/mimic-cxr-jpg/2.1.0"
 
-            out_path = path_to_processed_data / f"{patient_dir.name}_{study_dir.name}"
+    metadata_file = f"{processed_mimic_jpg_path}/mimic-cxr-2.0.0-metadata.csv"
+    metadata_df = pd.read_csv(
+        metadata_file, index_col=False
+    )  # data dim does not match header dim
 
-            if out_path.exists():
-                continue
+    record_file = f"{processed_mimic_path}/cxr-record-list.csv"
+    record_df = pd.read_csv(record_file)
 
-            try:
-                if len([*study_dir.glob("*.dcm")]) == 0:
-                    raise Exception("No DCM Files")
+    image_files = tqdm(sorted((f for f in images_path.glob("**/*.jpg"))))
 
-                info_file = study_dir.with_suffix(".txt")
-                info = info_file.read_text()
-                info_result = parse_info_file(info)
-                if info_result is None:
-                    continue
-                information, result = info_result
+    dataset_path.mkdir(exist_ok=True)
 
-                out_path.mkdir(parents=True)
+    for file in image_files:
+        dicom_id = file.stem
+        metadata = metadata_df[metadata_df["dicom_id"] == dicom_id]
+        subject_id = metadata["subject_id"].values[0]
+        study_id = metadata["study_id"].values[0]
+        view_position = metadata["ViewPosition"].values[0]
 
-                info_json = {"information": information, "result": result}
-                json.dump(info_json, open(out_path / "info.json", "w+"))
+        image_path = record_df[record_df["dicom_id"] == dicom_id]["path"].values[0]
+        text_path = str(Path(image_path).parent.with_suffix(".txt"))
+        text_path = f"{processed_mimic_path}/mimic-cxr-reports/{text_path}"
+        image_path = str(Path(f"{MIMIC_JPG_PATH}/{image_path}").with_suffix(".jpg"))
 
-                for dcm_file in study_dir.glob("*.dcm"):
-                    ds = pydicom.read_file(dcm_file)  # type: ignore
-                    pixels = (255 * (ds.pixel_array / ds.pixel_array.max())).astype(
-                        np.uint8
-                    )
-                    image = Image.fromarray(pixels)
-                    image = image.resize((1024, 1024))
-                    image.save(out_path / dcm_file.with_suffix(".png").name)
+        chexpert_file = f"{processed_mimic_jpg_path}/mimic-cxr-2.0.0-chexpert.csv"
+        chexpert_df = pd.read_csv(chexpert_file)
+        negbio_file = f"{processed_mimic_jpg_path}/mimic-cxr-2.0.0-negbio.csv"
+        negbio_df = pd.read_csv(negbio_file)
+        radiologist_file = (
+            f"{processed_mimic_jpg_path}/mimic-cxr-2.1.0-test-set-labeled.csv"
+        )
+        radiologist_df = pd.read_csv(radiologist_file)
 
-            except Exception as e:
-                print(f"Error Processing {patient_dir.name}_{study_dir.name}")
-                raise e
+        chexpert_predictions = (
+            chexpert_df[chexpert_df["study_id"] == study_id]
+            .drop(["subject_id", "study_id"], axis=1)
+            .iloc[0]
+            .to_dict()
+        )
+        negbio_predictions = (
+            negbio_df[negbio_df["study_id"] == study_id]
+            .drop(["subject_id", "study_id"], axis=1)
+            .iloc[0]
+            .to_dict()
+        )
+
+        radiologist_predictions = None
+        if study_id in radiologist_df["study_id"].values:
+            radiologist_predictions = (
+                radiologist_df[radiologist_df["study_id"] == study_id]
+                .drop(["subject_id", "study_id"], axis=1)
+                .iloc[0]
+                .to_dict()
+            )
+
+        map_preds = lambda x: x and {
+            k.replace(" ", "_").lower(): None if math.isnan(float(v)) else int(v)
+            for k, v in x.items()
+        }
+
+        data = {
+            "dicom_id": dicom_id,
+            "subject_id": int(subject_id),
+            "study_id": int(study_id),
+            "view_position": view_position,
+            "image_path": image_path,
+            "text_path": text_path,
+            "chexpert_predictions": map_preds(chexpert_predictions),
+            "negbio_predictions": map_preds(negbio_predictions),
+            "radiologist_predictions": map_preds(radiologist_predictions),
+        }
+
+        filename = str(dataset_path / f"{subject_id}_{study_id}.json")
+
+        json.dump(data, open(filename, "w+"), indent=4)
 
 
 def run_data_pipeline() -> None:
-    unzip_all_data()
+    # unzips / moves all csvs
+    process_data_files()
     parse_image_and_report_data()
 
 
